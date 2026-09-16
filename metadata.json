@@ -1,0 +1,6 @@
+{
+  "name": "Student Portfolio & CMS",
+  "description": "Dynamic student portfolio showcase with an integrated CMS admin dashboard for managing projects, profiles, and credentials.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,422 @@
+import React, { useState, useEffect } from 'react';
+import { User as UserIcon, Mail, Globe, Github, Linkedin, Twitter, FileText, Upload, Plus, X, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Profile } from '../../types';
+import { api } from '../../services/api';
+
+interface ProfileSettingsProps {
+  profile: Profile | null;
+  onProfileUpdated: (profile: Profile) => void;
+}
+
+const PRESET_AVATARS = [
+  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=400&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&auto=format&fit=crop&q=80'
+];
+
+export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ profile, onProfileUpdated }) => {
+  const [name, setName] = useState('');
+  const [title, setTitle] = useState('');
+  const [bio, setBio] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState('');
+  const [email, setEmail] = useState('');
+  const [githubUrl, setGithubUrl] = useState('');
+  const [linkedinUrl, setLinkedinUrl] = useState('');
+  const [twitterUrl, setTwitterUrl] = useState('');
+  const [websiteUrl, setWebsiteUrl] = useState('');
+  const [resumeUrl, setResumeUrl] = useState('');
+  const [skills, setSkills] = useState<string[]>([]);
+  const [newSkillInput, setNewSkillInput] = useState('');
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (profile) {
+      setName(profile.name || '');
+      setTitle(profile.title || '');
+      setBio(profile.bio || '');
+      setAvatarUrl(profile.avatar_url || '');
+      setEmail(profile.email || '');
+      setGithubUrl(profile.github_url || '');
+      setLinkedinUrl(profile.linkedin_url || '');
+      setTwitterUrl(profile.twitter_url || '');
+      setWebsiteUrl(profile.website_url || '');
+      setResumeUrl(profile.resume_url || '');
+      setSkills(profile.skills || []);
+    }
+  }, [profile]);
+
+  const handleAddSkill = (e: React.KeyboardEvent | React.MouseEvent) => {
+    if ('key' in e && e.key !== 'Enter') return;
+    e.preventDefault();
+    const trimmed = newSkillInput.trim();
+    if (trimmed && !skills.includes(trimmed)) {
+      setSkills([...skills, trimmed]);
+      setNewSkillInput('');
+    }
+  };
+
+  const handleRemoveSkill = (skillToRemove: string) => {
+    setSkills(skills.filter((s) => s !== skillToRemove));
+  };
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      setErrorMsg('Image file must be under 5MB.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const base64 = reader.result as string;
+        const res = await api.upload.uploadImage(base64, file.name);
+        setAvatarUrl(res.url);
+      } catch (err: any) {
+        setErrorMsg('Failed to upload image: ' + err.message);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    if (!name.trim()) {
+      setErrorMsg('Student name is required.');
+      return;
+    }
+    if (!title.trim()) {
+      setErrorMsg('Professional headline / title is required.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const res = await api.profile.update({
+        name: name.trim(),
+        title: title.trim(),
+        bio: bio.trim(),
+        avatar_url: avatarUrl.trim(),
+        email: email.trim(),
+        github_url: githubUrl.trim(),
+        linkedin_url: linkedinUrl.trim(),
+        twitter_url: twitterUrl.trim(),
+        website_url: websiteUrl.trim(),
+        resume_url: resumeUrl.trim(),
+        skills
+      });
+
+      setSuccessMsg('Student profile updated successfully!');
+      onProfileUpdated(res.profile);
+      setTimeout(() => setSuccessMsg(null), 4000);
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to update student profile.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6 max-w-4xl">
+      <div>
+        <h1 className="text-xl sm:text-2xl font-bold text-zinc-900 tracking-tight">Student Profile Settings</h1>
+        <p className="text-xs sm:text-sm text-zinc-500 mt-0.5">
+          Update the personal bio, headline, avatar, social media links, and technical skills shown on your public portfolio.
+        </p>
+      </div>
+
+      {successMsg && (
+        <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs sm:text-sm flex items-center gap-2 animate-in fade-in">
+          <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+          <span>{successMsg}</span>
+        </div>
+      )}
+
+      {errorMsg && (
+        <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-800 text-xs sm:text-sm flex items-center gap-2 animate-in fade-in">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" />
+          <span>{errorMsg}</span>
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-zinc-200 p-6 sm:p-8 space-y-6 shadow-2xs">
+        {/* Avatar Section */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 pb-6 border-b border-zinc-100">
+          <div className="w-24 h-24 rounded-2xl bg-zinc-100 border-2 border-zinc-200 overflow-hidden flex-shrink-0 shadow-2xs">
+            {avatarUrl ? (
+              <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-zinc-400">
+                <UserIcon className="w-8 h-8" />
+              </div>
+            )}
+          </div>
+
+          <div className="flex-1 space-y-2">
+            <label htmlFor="profile-avatar-url" className="block text-xs font-semibold text-zinc-700">
+              Avatar Image URL or Upload
+            </label>
+            <div className="flex gap-2">
+              <input
+                id="profile-avatar-url"
+                type="url"
+                value={avatarUrl}
+                onChange={(e) => setAvatarUrl(e.target.value)}
+                placeholder="https://..."
+                className="flex-1 px-3 py-1.5 text-xs sm:text-sm bg-zinc-50 border border-zinc-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-zinc-900"
+              />
+              <label className="px-3 py-1.5 rounded-xl border border-zinc-200 bg-white text-zinc-700 text-xs font-medium hover:bg-zinc-50 transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs">
+                <Upload className="w-3.5 h-3.5" />
+                <span>Upload</span>
+                <input type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" />
+              </label>
+            </div>
+
+            {/* Presets */}
+            <div className="flex items-center gap-2 pt-1">
+              <span className="text-[11px] text-zinc-400">Quick avatars:</span>
+              {PRESET_AVATARS.map((preset, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => setAvatarUrl(preset)}
+                  className={`w-7 h-7 rounded-full overflow-hidden border ${
+                    avatarUrl === preset ? 'ring-2 ring-zinc-900' : 'border-zinc-200 opacity-70 hover:opacity-100'
+                  }`}
+                >
+                  <img src={preset} alt="Preset" className="w-full h-full object-cover" />
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Basic Info */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label htmlFor="profile-name" className="block text-xs font-semibold text-zinc-700 mb-1">
+              Full Name <span className="text-red-500">*</span>
+            </label>
+            <input
+              id="profile-name"
+              type="text"
+              required
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Alex Rivera"
+              className="w-full px-3.5 py-2 text-sm bg-zinc-50 border border-zinc-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-zinc-900"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="profile-title" className="block text-xs font-semibold text-zinc-700 mb-1">
+              Headline / Title <span className="text-red-500">*</span>
+            </label>
+            <input
+              id="profile-title"
+              type="text"
+              required
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="e.g. Senior CS Student & Full-Stack Engineer"
+              className="w-full px-3.5 py-2 text-sm bg-zinc-50 border border-zinc-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-zinc-900"
+            />
+          </div>
+        </div>
+
+        {/* Bio */}
+        <div>
+          <label htmlFor="profile-bio" className="block text-xs font-semibold text-zinc-700 mb-1">
+            About / Bio
+          </label>
+          <textarea
+            id="profile-bio"
+            rows={4}
+            value={bio}
+            onChange={(e) => setBio(e.target.value)}
+            placeholder="Tell your story, academic achievements, research, or interests..."
+            className="w-full px-3.5 py-2 text-sm bg-zinc-50 border border-zinc-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-zinc-900 resize-none leading-relaxed"
+          />
+        </div>
+
+        {/* Skills Tag Manager */}
+        <div>
+          <label htmlFor="profile-new-skill" className="block text-xs font-semibold text-zinc-700 mb-1">
+            Technical Skills & Tools
+          </label>
+          <div className="flex gap-2 mb-2">
+            <input
+              id="profile-new-skill"
+              type="text"
+              value={newSkillInput}
+              onChange={(e) => setNewSkillInput(e.target.value)}
+              onKeyDown={handleAddSkill}
+              placeholder="Type a skill (e.g. Docker, Next.js) and press Enter"
+              className="flex-1 px-3.5 py-2 text-sm bg-zinc-50 border border-zinc-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-zinc-900"
+            />
+            <button
+              type="button"
+              onClick={handleAddSkill}
+              className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 text-xs font-semibold rounded-xl transition-colors cursor-pointer"
+            >
+              Add Skill
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-1.5 p-3 rounded-xl bg-zinc-50 border border-zinc-200 min-h-[44px]">
+            {skills.map((skill) => (
+              <span
+                key={skill}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-white text-zinc-800 border border-zinc-200 shadow-2xs"
+              >
+                <span>{skill}</span>
+                <button
+                  type="button"
+                  onClick={() => handleRemoveSkill(skill)}
+                  className="text-zinc-400 hover:text-red-500 transition-colors"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* Social Links & Resume */}
+        <div className="pt-4 border-t border-zinc-100 space-y-4">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-400">Social Links & Contact Info</h3>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="profile-email" className="block text-xs font-medium text-zinc-700 mb-1">
+                Public Contact Email
+              </label>
+              <div className="relative">
+                <Mail className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400" />
+                <input
+                  id="profile-email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="student@university.edu"
+                  className="w-full pl-9 pr-3.5 py-2 text-sm bg-zinc-50 border border-zinc-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-zinc-900"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="profile-resume" className="block text-xs font-medium text-zinc-700 mb-1">
+                Resume URL
+              </label>
+              <div className="relative">
+                <FileText className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400" />
+                <input
+                  id="profile-resume"
+                  type="url"
+                  value={resumeUrl}
+                  onChange={(e) => setResumeUrl(e.target.value)}
+                  placeholder="https://drive.google.com/... or /resume.pdf"
+                  className="w-full pl-9 pr-3.5 py-2 text-sm bg-zinc-50 border border-zinc-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-zinc-900"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="profile-github" className="block text-xs font-medium text-zinc-700 mb-1">
+                GitHub URL
+              </label>
+              <div className="relative">
+                <Github className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400" />
+                <input
+                  id="profile-github"
+                  type="url"
+                  value={githubUrl}
+                  onChange={(e) => setGithubUrl(e.target.value)}
+                  placeholder="https://github.com/username"
+                  className="w-full pl-9 pr-3.5 py-2 text-sm bg-zinc-50 border border-zinc-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-zinc-900"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="profile-linkedin" className="block text-xs font-medium text-zinc-700 mb-1">
+                LinkedIn URL
+              </label>
+              <div className="relative">
+                <Linkedin className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400" />
+                <input
+                  id="profile-linkedin"
+                  type="url"
+                  value={linkedinUrl}
+                  onChange={(e) => setLinkedinUrl(e.target.value)}
+                  placeholder="https://linkedin.com/in/username"
+                  className="w-full pl-9 pr-3.5 py-2 text-sm bg-zinc-50 border border-zinc-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-zinc-900"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="profile-twitter" className="block text-xs font-medium text-zinc-700 mb-1">
+                Twitter / X URL
+              </label>
+              <div className="relative">
+                <Twitter className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400" />
+                <input
+                  id="profile-twitter"
+                  type="url"
+                  value={twitterUrl}
+                  onChange={(e) => setTwitterUrl(e.target.value)}
+                  placeholder="https://twitter.com/username"
+                  className="w-full pl-9 pr-3.5 py-2 text-sm bg-zinc-50 border border-zinc-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-zinc-900"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="profile-website" className="block text-xs font-medium text-zinc-700 mb-1">
+                Personal Website / Domain
+              </label>
+              <div className="relative">
+                <Globe className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400" />
+                <input
+                  id="profile-website"
+                  type="url"
+                  value={websiteUrl}
+                  onChange={(e) => setWebsiteUrl(e.target.value)}
+                  placeholder="https://alexrivera.dev"
+                  className="w-full pl-9 pr-3.5 py-2 text-sm bg-zinc-50 border border-zinc-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-zinc-900"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Submit Button */}
+        <div className="pt-4 border-t border-zinc-100 flex justify-end">
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="px-6 py-2.5 bg-zinc-900 text-white rounded-xl text-sm font-semibold hover:bg-zinc-800 disabled:opacity-50 transition-colors shadow-xs flex items-center gap-2 cursor-pointer"
+          >
+            {isSubmitting ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                <span>Saving Changes...</span>
+              </>
+            ) : (
+              <span>Save Profile</span>
+            )}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+};
